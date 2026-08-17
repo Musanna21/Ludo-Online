@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lobby - Ludo Online</title>
+
+  <!-- Authentication Guard: Runs before page renders -->
+  <script>
+    const session = localStorage.getItem('ludo_current_user');
+    if (!session) {
+      window.location.href = 'index.html';
+    }
+  </script>
+
+  <style>
+    :root { --primary: #ea580c; --primary-dark: #c2410c; --bg: #fff7ed; --text: #1c1917; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, sans-serif; background: var(--bg); color: var(--text);
+      display: flex; flex-direction: column; min-height: 100vh; margin: 0;
+      align-items: center; justify-content: center; padding: 1rem;
+    }
+    .card {
+      background: white; padding: 2.5rem 2rem; border-radius: 14px;
+      box-shadow: 0 10px 30px -10px rgb(0 0 0 / 0.25); text-align: center;
+      max-width: 440px; width: 100%;
+    }
+    h1 { margin-top: 0; color: var(--primary); font-size: 1.75rem; }
+    p { color: #57534e; font-size: 0.95rem; margin-bottom: 1.5rem; }
+    button {
+      background: var(--primary); color: white; border: none; padding: 0.75rem 1.5rem;
+      border-radius: 8px; font-size: 1rem; cursor: pointer; width: 100%; margin: 0.4rem 0;
+      transition: transform 0.1s, background 0.15s; font-weight: 600;
+    }
+    button:hover { background: var(--primary-dark); }
+    button:active { transform: scale(0.98); }
+    .btn-secondary { background: #f5f5f4; color: #1c1917; }
+    .btn-secondary:hover { background: #e7e5e4; }
+    .btn-danger { background: transparent; color: #dc2626; border: 1px solid #fecaca; margin-top: 2rem; }
+    .btn-danger:hover { background: #fef2f2; }
+    .user-badge {
+      background: #fff1e6; padding: 0.5rem 1rem; border-radius: 20px;
+      font-size: 0.85rem; display: inline-block; margin-bottom: 1.5rem; color: #7c2d12;
+    }
+
+    .mode-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; background: #f5f5f4; padding: 4px; border-radius: 10px; }
+    .mode-tab {
+      flex: 1; background: transparent; color: #57534e; padding: 0.5rem 0; margin: 0;
+      border-radius: 7px; font-size: 0.85rem;
+    }
+    .mode-tab.selected { background: white; color: var(--primary); box-shadow: 0 1px 3px rgb(0 0 0 / 0.15); }
+    .mode-panel { display: none; text-align: left; }
+    .mode-panel.active { display: block; }
+
+    .count-picker { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    .count-btn {
+      flex: 1; background: #f5f5f4; color: #1c1917; border: 2px solid transparent;
+      padding: 0.6rem 0; margin: 0; font-weight: bold;
+    }
+    .count-btn.selected { border-color: var(--primary); background: #fff1e6; color: var(--primary); }
+    .player-inputs { margin-bottom: 1rem; }
+    .player-input-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+    .color-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+    .dot-red { background: #ef4444; } .dot-green { background: #22c55e; }
+    .dot-yellow { background: #eab308; } .dot-blue { background: #3b82f6; }
+    .player-input-row input {
+      flex: 1; padding: 0.5rem; border: 1px solid #d6d3d1; border-radius: 6px; font-size: 0.95rem;
+    }
+    .section-label { font-size: 0.875rem; font-weight: bold; display: block; margin-bottom: 0.5rem; }
+    .hint { font-size: 0.78rem; color: #78716c; margin: 0.25rem 0 1rem; }
+  </style>
+</head>
+
+<body>
+  <main class="card">
+    <h1>Game Lobby</h1>
+    <div class="user-badge" id="statusDisplay">Loading user info...</div>
+
+    <div class="mode-tabs">
+      <button type="button" class="mode-tab selected" data-mode="local">Same Device</button>
+      <button type="button" class="mode-tab" data-mode="remote">Remote (Online)</button>
+      <button type="button" class="mode-tab" data-mode="ai">Play AI</button>
+    </div>
+
+    <!-- Local pass-and-play setup -->
+    <div class="mode-panel active" id="localPanel">
+      <p style="margin-bottom: 0.5rem;">Everyone takes turns on this device.</p>
+
+      <span class="section-label">Number of players</span>
+      <div class="count-picker" id="countPicker">
+        <button type="button" class="count-btn" data-count="2">2</button>
+        <button type="button" class="count-btn" data-count="3">3</button>
+        <button type="button" class="count-btn" data-count="4">4</button>
+      </div>
+
+      <span class="section-label">Player names</span>
+      <div class="player-inputs" id="playerInputs"></div>
+
+      <button onclick="startLocalGame()">Start Game</button>
+    </div>
+
+    <!-- Remote multiplayer entry points -->
+    <div class="mode-panel" id="remotePanel">
+      <p style="margin-bottom: 0.75rem;">
+        Play with friends on other devices - no account or server needed,
+        just a code you exchange with each other.
+      </p>
+      <button onclick="window.location.href='ludo.html?mode=host'">Host a Game</button>
+      <button class="btn-secondary" onclick="window.location.href='ludo.html?mode=join'">Join a Game</button>
+      <p class="hint">
+        Hosting works best on the same Wi-Fi/network as your friends. Across
+        different networks it usually still works, but very restrictive
+        firewalls can block the direct connection.
+      </p>
+    </div>
+
+    <!-- Play against AI opponents -->
+    <div class="mode-panel" id="aiPanel">
+      <p style="margin-bottom: 0.5rem;">Play against computer-controlled opponents.</p>
+
+      <span class="section-label">Number of AI opponents</span>
+      <div class="count-picker" id="aiCountPicker">
+        <button type="button" class="count-btn" data-count="1">1</button>
+        <button type="button" class="count-btn" data-count="2">2</button>
+        <button type="button" class="count-btn" data-count="3">3</button>
+      </div>
+
+      <span class="section-label">Your name</span>
+      <div class="player-input-row" style="margin-bottom: 1rem;">
+        <span class="color-dot dot-red"></span>
+        <input type="text" id="aiYourName" maxlength="20">
+      </div>
+
+      <span class="section-label">Gemini API key <span style="font-weight:normal; color:#78716c;">(optional)</span></span>
+      <input type="password" id="aiApiKey" placeholder="Paste a free Gemini API key" style="width:100%; padding:0.6rem; border:1px solid #d6d3d1; border-radius:6px; font-size:0.9rem; margin-bottom:0.4rem;">
+      <p class="hint" style="margin-top:0;">
+        Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--primary);">aistudio.google.com/apikey</a>.
+        It's stored only in this browser and sent straight to Google - no
+        server of ours ever sees it. Without a key, the AI still plays using
+        solid built-in logic (captures, safe moves, getting tokens out) -
+        it just won't reason as flexibly as Gemini would.
+      </p>
+
+      <button onclick="startAIGame()">Start Game</button>
+    </div>
+
+    <button class="btn-danger" onclick="logout()">Logout / Clear Session</button>
+  </main>
+
+  <script>
+    const COLORS = ['red', 'green', 'yellow', 'blue'];
+
+    const userData = JSON.parse(localStorage.getItem('ludo_current_user'));
+    const status = document.getElementById('statusDisplay');
+    const myDisplayName = userData.type === 'guest'
+      ? `Guest ${userData.id.substring(0, 6)}`
+      : userData.username;
+
+    status.textContent = userData.type === 'guest'
+      ? `👤 Guest: ${userData.id.substring(0, 8)}...`
+      : `👤 User: ${userData.username}`;
+
+    // ---- Mode tabs ----
+    document.querySelectorAll('.mode-tab').forEach((tab) => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.mode-tab').forEach((t) => t.classList.toggle('selected', t === tab));
+        document.getElementById('localPanel').classList.toggle('active', tab.dataset.mode === 'local');
+        document.getElementById('remotePanel').classList.toggle('active', tab.dataset.mode === 'remote');
+        document.getElementById('aiPanel').classList.toggle('active', tab.dataset.mode === 'ai');
+      });
+    });
+
+    // ---- Local pass-and-play setup ----
+    let playerCount = 2;
+
+    function renderPlayerInputs() {
+      const container = document.getElementById('playerInputs');
+      const existingValues = Array.from(container.querySelectorAll('input')).map((i) => i.value);
+      container.innerHTML = '';
+      for (let i = 0; i < playerCount; i += 1) {
+        const row = document.createElement('div');
+        row.className = 'player-input-row';
+        const defaultValue = existingValues[i] || (i === 0 ? myDisplayName : `Player ${i + 1}`);
+        row.innerHTML = `
+          <span class="color-dot dot-${COLORS[i]}"></span>
+          <input type="text" maxlength="20" value="${escapeAttr(defaultValue)}" data-color="${COLORS[i]}">
+        `;
+        container.appendChild(row);
+      }
+    }
+
+    function escapeAttr(str) {
+      return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    }
+
+    document.getElementById('countPicker').addEventListener('click', (e) => {
+      const btn = e.target.closest('.count-btn');
+      if (!btn) return;
+      playerCount = parseInt(btn.dataset.count, 10);
+      document.querySelectorAll('.count-btn').forEach((b) => b.classList.toggle('selected', b === btn));
+      renderPlayerInputs();
+    });
+
+    document.querySelector('.count-btn[data-count="2"]').classList.add('selected');
+    renderPlayerInputs();
+
+    function startLocalGame() {
+      const inputs = Array.from(document.querySelectorAll('#playerInputs input'));
+      const players = inputs.map((input) => ({
+        name: input.value.trim() || `Player (${input.dataset.color})`,
+        color: input.dataset.color,
+      }));
+
+      const names = players.map((p) => p.name.toLowerCase());
+      if (new Set(names).size !== names.length) {
+        alert('Please give each player a unique name.');
+        return;
+      }
+
+      localStorage.setItem('ludo_local_players', JSON.stringify(players));
+      window.location.href = 'ludo.html';
+    }
+
+    function logout() {
+      localStorage.removeItem('ludo_current_user');
+      localStorage.removeItem('ludo_local_players');
+      window.location.href = 'index.html';
+    }
+
+    // ---- Play AI setup ----
+    const AI_COLOR_ORDER = ['green', 'yellow', 'blue'];
+    let aiOpponentCount = 1;
+
+    document.getElementById('aiYourName').value = myDisplayName;
+    document.getElementById('aiApiKey').value = localStorage.getItem('ludo_gemini_api_key') || '';
+
+    document.getElementById('aiCountPicker').addEventListener('click', (e) => {
+      const btn = e.target.closest('.count-btn');
+      if (!btn) return;
+      aiOpponentCount = parseInt(btn.dataset.count, 10);
+      e.currentTarget.querySelectorAll('.count-btn').forEach((b) => b.classList.toggle('selected', b === btn));
+    });
+    document.querySelector('#aiCountPicker .count-btn[data-count="1"]').classList.add('selected');
+
+    function startAIGame() {
+      const yourName = document.getElementById('aiYourName').value.trim() || myDisplayName;
+      const apiKey = document.getElementById('aiApiKey').value.trim();
+
+      const players = [{ name: yourName, color: 'red', isAI: false }];
+      for (let i = 0; i < aiOpponentCount; i += 1) {
+        const color = AI_COLOR_ORDER[i];
+        players.push({ name: `AI (${color[0].toUpperCase()}${color.slice(1)})`, color, isAI: true });
+      }
+
+      localStorage.setItem('ludo_ai_players', JSON.stringify(players));
+      if (apiKey) localStorage.setItem('ludo_gemini_api_key', apiKey);
+      else localStorage.removeItem('ludo_gemini_api_key');
+
+      window.location.href = 'ludo.html?mode=ai';
+    }
+  </script>
+</body>
+
+</html>
